@@ -1,7 +1,6 @@
-streamlit
 librosa
 numpy
-tensorflow
+tflite-runtime
 scikit-learn
 fastapi
 uvicorn

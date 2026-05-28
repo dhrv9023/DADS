@@ -2,7 +2,6 @@ import os
 import pickle
 import hashlib
 import numpy as np
-import tensorflow as tf
 import librosa
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,27 +19,47 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load the trained model and label encoder robustly
+# Load paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-model_path = os.path.join(BASE_DIR, 'Model', 'fake_or_real_audio_lstm_model.h5')
-if not os.path.exists(model_path):
-    model_path = os.path.join(BASE_DIR, 'fake_or_real_audio_lstm_model.h5')
-
+tflite_model_path = os.path.join(BASE_DIR, 'Model', 'fake_or_real_audio_lstm_model.tflite')
+h5_model_path = os.path.join(BASE_DIR, 'Model', 'fake_or_real_audio_lstm_model.h5')
 encoder_path = os.path.join(BASE_DIR, 'Model', 'label_encoder.pkl')
+
 if not os.path.exists(encoder_path):
     encoder_path = os.path.join(BASE_DIR, 'label_encoder.pkl')
-
-print(f"Loading model from: {model_path}")
-model = tf.keras.models.load_model(model_path)
 
 print(f"Loading label encoder from: {encoder_path}")
 with open(encoder_path, 'rb') as f:
     label_encoder = pickle.load(f)
 
+# Load TFLite or Keras model dynamically
+interpreter = None
+keras_model = None
+input_details = None
+output_details = None
+
+if os.path.exists(tflite_model_path):
+    print(f"Loading lightweight TFLite model from: {tflite_model_path}")
+    try:
+        import tflite_runtime.interpreter as tflite
+        interpreter = tflite.Interpreter(model_path=tflite_model_path)
+    except ImportError:
+        try:
+            import tensorflow.lite as tflite
+            interpreter = tflite.Interpreter(model_path=tflite_model_path)
+        except ImportError:
+            import tensorflow as tf
+            interpreter = tf.lite.Interpreter(model_path=tflite_model_path)
+            
+    interpreter.allocate_tensors()
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+else:
+    print(f"TFLite model not found. Falling back to Keras .h5 model from: {h5_model_path}")
+    import tensorflow as tf
+    keras_model = tf.keras.models.load_model(h5_model_path)
+
 def extract_features(file_bytes: bytes) -> np.ndarray:
-    # Use a temporary file to load with librosa (since librosa requires a file path or file-like object)
-    # librosa.load can handle bytes if we write to a temporary file or use BytesIO if supported,
-    # but a temporary file is the most robust way across different audio backends.
     temp_filename = "temp_prediction_audio.wav"
     try:
         with open(temp_filename, "wb") as f:
@@ -56,6 +75,14 @@ def extract_features(file_bytes: bytes) -> np.ndarray:
                 os.remove(temp_filename)
             except Exception:
                 pass
+
+def run_tflite_prediction(features: np.ndarray) -> np.ndarray:
+    # Set the input tensor
+    interpreter.set_tensor(input_details[0]['index'], features.astype(np.float32))
+    # Run prediction
+    interpreter.invoke()
+    # Retrieve the prediction vector
+    return interpreter.get_tensor(output_details[0]['index'])
 
 @app.post("/predict")
 async def predict_audio(file: UploadFile = File(...)):
@@ -77,10 +104,15 @@ async def predict_audio(file: UploadFile = File(...)):
             elif 'real' in filename or 'original' in filename:
                 return {"status": "success", "prediction": "real", "confidence": 0.99, "source": "heuristic"}
 
-        # 3. Deep learning LSTM model prediction
+        # 3. Model prediction (TFLite or Keras)
         try:
             features = extract_features(file_bytes)
-            prediction = model.predict(features)
+            
+            if interpreter is not None:
+                prediction = run_tflite_prediction(features)
+            else:
+                prediction = keras_model.predict(features)
+                
             predicted_index = np.argmax(prediction)
             predicted_label = label_encoder.inverse_transform([predicted_index])[0]
             confidence = float(prediction[0][predicted_index])
@@ -89,14 +121,12 @@ async def predict_audio(file: UploadFile = File(...)):
                 "status": "success",
                 "prediction": "real" if predicted_label.lower() == "real" else "fake",
                 "confidence": confidence,
-                "source": "lstm_model"
+                "source": "tflite_model" if interpreter is not None else "lstm_model"
             }
         except Exception as model_err:
-            # If librosa fails because of webm/mpeg file-format / system-backend error,
-            # we want to provide a fallback instead of crashing
             print(f"Model prediction error: {model_err}")
             
-            # Simple fallback heuristic for generic testing if the audio backend fails
+            # Simple fallback heuristic if the audio backend / loading fails
             if 'fake' in filename or 'clone' in filename:
                 return {"status": "success", "prediction": "fake", "confidence": 0.85, "source": "error_fallback"}
             else:
