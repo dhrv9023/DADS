@@ -1,0 +1,26 @@
+# Dependency folders
+node_modules/
+landing/node_modules/
+
+# Build and distribution files
+dist/
+landing/dist/
+build/
+*.pyc
+__pycache__/
+.pytest_cache/
+
+# Local configuration
+.env
+.env.local
+.env.*.local
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# OS specific files
+.DS_Store
+Thumbs.db
