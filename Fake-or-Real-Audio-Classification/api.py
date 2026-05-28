@@ -41,13 +41,16 @@ output_details = None
 if os.path.exists(tflite_model_path):
     print(f"Loading lightweight TFLite model from: {tflite_model_path}")
     try:
-        import tflite_runtime.interpreter as tflite
+        # 1. Try local/standard tensorflow first to silence VS Code linter warnings
+        import tensorflow.lite as tflite # type: ignore
         interpreter = tflite.Interpreter(model_path=tflite_model_path)
-    except ImportError:
+    except (ImportError, AttributeError):
         try:
-            import tensorflow.lite as tflite
+            # 2. Try tflite-runtime for Render/production environment
+            import tflite_runtime.interpreter as tflite # type: ignore
             interpreter = tflite.Interpreter(model_path=tflite_model_path)
         except ImportError:
+            # 3. Fallback to main tensorflow module
             import tensorflow as tf
             interpreter = tf.lite.Interpreter(model_path=tflite_model_path)
             
