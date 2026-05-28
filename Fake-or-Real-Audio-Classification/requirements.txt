@@ -1,6 +1,6 @@
 librosa
 numpy
-tflite-runtime
+onnxruntime
 scikit-learn
 fastapi
 uvicorn

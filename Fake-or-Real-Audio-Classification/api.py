@@ -21,7 +21,7 @@ app.add_middleware(
 
 # Load paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-tflite_model_path = os.path.join(BASE_DIR, 'Model', 'fake_or_real_audio_lstm_model.tflite')
+onnx_model_path = os.path.join(BASE_DIR, 'Model', 'fake_or_real_audio_lstm_model.onnx')
 h5_model_path = os.path.join(BASE_DIR, 'Model', 'fake_or_real_audio_lstm_model.h5')
 encoder_path = os.path.join(BASE_DIR, 'Model', 'label_encoder.pkl')
 
@@ -32,33 +32,18 @@ print(f"Loading label encoder from: {encoder_path}")
 with open(encoder_path, 'rb') as f:
     label_encoder = pickle.load(f)
 
-# Load TFLite or Keras model dynamically
-interpreter = None
+# Load ONNX session or Keras model dynamically
+session = None
 keras_model = None
-input_details = None
-output_details = None
+input_name = None
 
-if os.path.exists(tflite_model_path):
-    print(f"Loading lightweight TFLite model from: {tflite_model_path}")
-    try:
-        # 1. Try local/standard tensorflow first to silence VS Code linter warnings
-        import tensorflow.lite as tflite # type: ignore
-        interpreter = tflite.Interpreter(model_path=tflite_model_path)
-    except (ImportError, AttributeError):
-        try:
-            # 2. Try tflite-runtime for Render/production environment
-            import tflite_runtime.interpreter as tflite # type: ignore
-            interpreter = tflite.Interpreter(model_path=tflite_model_path)
-        except ImportError:
-            # 3. Fallback to main tensorflow module
-            import tensorflow as tf
-            interpreter = tf.lite.Interpreter(model_path=tflite_model_path)
-            
-    interpreter.allocate_tensors()
-    input_details = interpreter.get_input_details()
-    output_details = interpreter.get_output_details()
+if os.path.exists(onnx_model_path):
+    print(f"Loading high-performance ONNX model from: {onnx_model_path}")
+    import onnxruntime as ort
+    session = ort.InferenceSession(onnx_model_path)
+    input_name = session.get_inputs()[0].name
 else:
-    print(f"TFLite model not found. Falling back to Keras .h5 model from: {h5_model_path}")
+    print(f"ONNX model not found. Falling back to Keras .h5 model from: {h5_model_path}")
     import tensorflow as tf
     keras_model = tf.keras.models.load_model(h5_model_path)
 
@@ -78,14 +63,6 @@ def extract_features(file_bytes: bytes) -> np.ndarray:
                 os.remove(temp_filename)
             except Exception:
                 pass
-
-def run_tflite_prediction(features: np.ndarray) -> np.ndarray:
-    # Set the input tensor
-    interpreter.set_tensor(input_details[0]['index'], features.astype(np.float32))
-    # Run prediction
-    interpreter.invoke()
-    # Retrieve the prediction vector
-    return interpreter.get_tensor(output_details[0]['index'])
 
 @app.post("/predict")
 async def predict_audio(file: UploadFile = File(...)):
@@ -107,13 +84,15 @@ async def predict_audio(file: UploadFile = File(...)):
             elif 'real' in filename or 'original' in filename:
                 return {"status": "success", "prediction": "real", "confidence": 0.99, "source": "heuristic"}
 
-        # 3. Model prediction (TFLite or Keras)
+        # 3. Model prediction (ONNX or Keras)
         try:
             features = extract_features(file_bytes)
             
-            if interpreter is not None:
-                prediction = run_tflite_prediction(features)
+            if session is not None:
+                # Run ONNX inference
+                prediction = session.run(None, {input_name: features.astype(np.float32)})[0]
             else:
+                # Run Keras fallback
                 prediction = keras_model.predict(features)
                 
             predicted_index = np.argmax(prediction)
@@ -124,7 +103,7 @@ async def predict_audio(file: UploadFile = File(...)):
                 "status": "success",
                 "prediction": "real" if predicted_label.lower() == "real" else "fake",
                 "confidence": confidence,
-                "source": "tflite_model" if interpreter is not None else "lstm_model"
+                "source": "onnx_model" if session is not None else "lstm_model"
             }
         except Exception as model_err:
             print(f"Model prediction error: {model_err}")
