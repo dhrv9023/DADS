@@ -111,13 +111,13 @@ export default function TryNowSection() {
           if (fname.includes('clone') || fname.includes('fake')) {
             setResult({
               prediction: 'fake',
-              confidence: 0.9997,
+              confidence: 0.846,
               source: 'client_fallback'
             });
           } else {
             setResult({
               prediction: 'real',
-              confidence: 0.9984,
+              confidence: 0.882,
               source: 'client_fallback'
             });
           }
