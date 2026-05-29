@@ -62,7 +62,7 @@ export default function ServicesSection() {
       id="services"
       className="bg-black py-28 md:py-40 px-6 overflow-hidden"
     >
-      <div className="max-w-6xl mx-auto" ref={ref}>
+      <div className="max-w-7xl mx-auto" ref={ref}>
         <div className="bg-[radial-gradient(ellipse_at_center,_rgba(255,255,255,0.02)_0%,_transparent_60%)]">
           {/* Header */}
           <motion.div

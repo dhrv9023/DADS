@@ -7,7 +7,7 @@ export default function FeaturedVideoSection() {
 
   return (
     <section className="bg-black pt-6 md:pt-10 pb-20 md:pb-32 px-6 overflow-hidden">
-      <div className="max-w-6xl mx-auto" ref={ref}>
+      <div className="max-w-7xl mx-auto" ref={ref}>
         <motion.div
           initial={{ opacity: 0, y: 60 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}

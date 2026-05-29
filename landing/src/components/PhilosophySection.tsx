@@ -10,7 +10,7 @@ export default function PhilosophySection() {
       id="how-it-works"
       className="bg-black py-28 md:py-40 px-6 overflow-hidden"
     >
-      <div className="max-w-6xl mx-auto" ref={ref}>
+      <div className="max-w-7xl mx-auto" ref={ref}>
         {/* Heading */}
         <motion.h2
           initial={{ opacity: 0, y: 40 }}

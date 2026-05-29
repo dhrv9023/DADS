@@ -90,7 +90,7 @@ export default function Hero() {
 
       {/* Navbar */}
       <nav className="relative z-20 px-6 py-6">
-        <div className="liquid-glass rounded-full max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="liquid-glass rounded-full max-w-7xl mx-auto px-8 py-3 flex items-center justify-between">
           {/* Left */}
           <div className="flex items-center">
             <Globe size={24} className="text-white" />
@@ -134,7 +134,7 @@ export default function Hero() {
         </h1>
 
         {/* Large glassmorphic CTA */}
-        <div className="max-w-xl w-full mb-8 px-2 sm:px-0">
+        <div className="max-w-2xl w-full mb-8 px-2 sm:px-0">
           <div 
             onClick={scrollToTryNow}
             className="liquid-glass rounded-2xl sm:rounded-full pl-4 sm:pl-8 pr-2 py-2 flex items-center justify-between cursor-pointer border border-white/10 hover:border-white/20 hover:bg-white/[0.02] transition-all group"
@@ -149,7 +149,7 @@ export default function Hero() {
         </div>
 
         {/* Subtitle */}
-        <p className="text-white/60 text-sm leading-relaxed px-4 max-w-lg mb-8">
+        <p className="text-white/60 text-sm sm:text-base leading-relaxed px-4 max-w-2xl mb-8">
           <strong>DAD (Deepfake Audio Detection)</strong> is a state-of-the-art hybrid deep learning framework utilizing spatial CNNs, Bidirectional LSTMs, and global Transformer Encoders to distinguish real human speech from synthetic voice clones.
         </p>
 
