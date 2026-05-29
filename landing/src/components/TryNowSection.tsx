@@ -146,7 +146,6 @@ export default function TryNowSection() {
   const handleLoadDemo = async (type: 'real' | 'fake') => {
     setLoading(true);
     setResult(null);
-    const startTime = performance.now();
     
     const filePath = type === 'real' ? '/bacham_real.webm' : '/Bachan_clone_3.mp3.mpeg';
     const fileName = type === 'real' ? 'amitabh_bachchan_real.webm' : 'amitabh_bachchan_fake_clone.mp3.mpeg';
@@ -164,46 +163,6 @@ export default function TryNowSection() {
       };
       audio.onended = () => setIsPlaying(false);
       audioPlaybackRef.current = audio;
-      
-      const formData = new FormData();
-      formData.append('file', demoFile);
-      
-      const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      
-      try {
-        const responsePredict = await fetch(`${backendUrl}/predict`, {
-          method: 'POST',
-          body: formData
-        });
-        
-        const endTime = performance.now();
-        setInferenceTime(Math.round(endTime - startTime));
-        
-        if (!responsePredict.ok) throw new Error('API server error');
-        
-        const data = await responsePredict.json();
-        if (data.status === 'success') {
-          setResult({
-            prediction: data.prediction,
-            confidence: data.confidence,
-            source: data.source
-          });
-        } else {
-          throw new Error('Verification failed');
-        }
-      } catch (err) {
-        setTimeout(() => {
-          const endTime = performance.now();
-          setInferenceTime(Math.round(endTime - startTime) + 240);
-          setResult({
-            prediction: type,
-            confidence: type === 'real' ? 0.9984 : 0.9997,
-            source: 'demo_preset'
-          });
-          setLoading(false);
-        }, 1200);
-        return;
-      }
     } catch (err) {
       console.error('Failed to fetch demo preset', err);
     }
